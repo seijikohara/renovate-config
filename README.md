@@ -42,7 +42,7 @@ The 3-day hold covers only the dependencies that Renovate updates. Renovate does
 
 | Package manager | Repository setting |
 |---|---|
-| pnpm 11+ | None. pnpm holds every release for 1 day by default ([`minimumReleaseAge`](https://pnpm.io/settings/dependency-resolution#minimumreleaseage)). An explicit value also turns on [`minimumReleaseAgeStrict`](https://pnpm.io/settings/dependency-resolution#minimumreleaseagestrict), which makes a security fix newer than the cooldown fail to resolve, so repositories keep the default. |
+| pnpm 11+ | None. pnpm applies a 1-day [`minimumReleaseAge`](https://pnpm.io/settings/dependency-resolution#minimumreleaseage) by default. The default is non-strict: when no version at least 1 day old satisfies a range, pnpm falls back to a newer version instead of failing. An explicit value turns on [`minimumReleaseAgeStrict`](https://pnpm.io/settings/dependency-resolution#minimumreleaseagestrict), which makes that resolution fail and blocks security fixes newer than the cooldown, so repositories keep the default. |
 | npm 11.10+ | `min-release-age=3` in `.npmrc` ([`min-release-age`](https://docs.npmjs.com/cli/v11/using-npm/config#min-release-age)). Renovate then skips its own `--before` flag and leaves the hold to npm. |
 | Bun | `install.minimumReleaseAge = 259200` (3 days in seconds) in `bunfig.toml` ([`install.minimumReleaseAge`](https://bun.com/docs/runtime/bunfig#install-minimumreleaseage)). Bun has no hold by default. |
 
