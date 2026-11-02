@@ -1,0 +1,115 @@
+{
+  // Shared Renovate policy for seijikohara repositories.
+  // A repository extends this preset with
+  //   extends: ["github>seijikohara/renovate-config:default.json5"]
+  // and adds only its own packageRules. Settings in the repository override this
+  // preset, and repository packageRules run after the rules below.
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  description: "Shared Renovate policy for seijikohara repositories",
+  extends: [
+    // Maintainer-recommended superset of config:recommended. Adds GitHub Action and
+    // Docker digest pinning, config migration, weekly lock file maintenance,
+    // abandonment notices, and the npm minimum-release-age cooldown.
+    "config:best-practices",
+    // Conventional Commits with a unified `chore(deps): ...` subject.
+    // config:recommended uses `fix` for production dependencies; this uses `chore`
+    // for every update. The scope defaults to `deps`.
+    ":semanticCommits",
+    ":semanticCommitTypeAll(chore)",
+  ],
+  timezone: "Asia/Tokyo",
+  // Monday 00:00-08:59 JST in cron syntax; Renovate deprecates the later.js text
+  // syntax. The Mend-hosted app processes a repository about every 4 hours, so a
+  // 9-hour window gives each week two or three runs.
+  schedule: ["* 0-8 * * 1"],
+  labels: ["dependencies"],
+  // Keep update branches rebased on the base branch and merge via rebase once CI
+  // passes. GitHub native auto-merge (platformAutomerge, on by default) needs
+  // "Allow auto-merge", "Allow rebase merging", and a required status check.
+  rebaseWhen: "behind-base-branch",
+  automergeStrategy: "rebase",
+  // Hold every release for 3 days so a hijacked publish cannot ride automerge on
+  // day zero.
+  minimumReleaseAge: "3 days",
+  // The default limit of two new PRs per hour left lock file maintenance and
+  // regular updates rate-limited week after week in the short weekly window.
+  prHourlyLimit: 0,
+  lockFileMaintenance: {
+    // Auto-merge the weekly lock file refresh together with regular updates.
+    automerge: true,
+    // config:best-practices limits lock file maintenance to "before 4am on
+    // monday", which fits a single run. Use the same window as regular updates.
+    schedule: ["* 0-8 * * 1"],
+  },
+  packageRules: [
+    {
+      // config:best-practices pins devDependencies. Keep their ranges instead and
+      // let rangeStrategy "auto" decide: an in-range release changes only the lock
+      // file, an out-of-range release replaces the range, and a peerDependencies
+      // range widens. The committed lock file keeps installs reproducible.
+      description: "Keep development dependency ranges instead of pinning them",
+      matchDepTypes: ["devDependencies", "dev-dependencies", "dev"],
+      rangeStrategy: "auto",
+    },
+    {
+      // Mirrors the carve-outs of the security:minimumReleaseAge* presets, which
+      // apply to their own datasource only. These update types carry no release
+      // timestamp, so the hold above would otherwise block them forever.
+      description: "Skip the release-age hold for update types without release timestamps",
+      matchUpdateTypes: ["lockFileMaintenance", "pin", "replacement", "bump", "lockfileUpdate", "rollback"],
+      minimumReleaseAge: null,
+    },
+    {
+      // Git submodules and registries such as GHCR and gcr.io publish no timestamp
+      // for a digest. Under the default timestamp-required behaviour such updates
+      // never leave "Pending Status Checks". Digests that carry a timestamp still
+      // wait 3 days.
+      description: "Let digest updates through when the source publishes no release timestamp",
+      matchUpdateTypes: ["digest"],
+      minimumReleaseAgeBehaviour: "timestamp-optional",
+    },
+    {
+      // The java-version datasource behind actions/setup-java publishes no release
+      // timestamps, so a JDK update would otherwise stay pending forever. Majors
+      // still need dashboard approval.
+      description: "Skip the release-age hold for JDK versions, which carry no release timestamps",
+      matchDatasources: ["java-version"],
+      minimumReleaseAge: null,
+    },
+    {
+      description: "Auto-merge non-major updates once CI passes",
+      matchUpdateTypes: ["minor", "patch", "pin", "pinDigest", "digest"],
+      automerge: true,
+    },
+    {
+      description: "Hold major updates for manual review via the dependency dashboard",
+      matchUpdateTypes: ["major"],
+      dependencyDashboardApproval: true,
+      addLabels: ["major"],
+    },
+    {
+      description: "Group and label GitHub Actions updates",
+      matchManagers: ["github-actions"],
+      groupName: "github-actions",
+      addLabels: ["github-actions"],
+    },
+    {
+      // actions/setup-node, .node-version, .nvmrc, and Docker images each declare
+      // the runtime. Without this rule the github-actions group takes the
+      // setup-node pin, so a new Node.js major needs two approvals and the pins
+      // can drift apart.
+      description: "Update the Node.js runtime in every file in one PR",
+      matchDepNames: ["node"],
+      groupName: "Node.js",
+    },
+  ],
+  vulnerabilityAlerts: {
+    // Renovate raises security fixes at any time and skips minimumReleaseAge for
+    // them by default.
+    description: "Label security fixes and require manual review",
+    addLabels: ["security"],
+    // Required: Renovate applies these settings with `force`, so without this line
+    // a security fix would inherit automerge from the non-major rule above.
+    automerge: false,
+  },
+}
